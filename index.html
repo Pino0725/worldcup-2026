@@ -615,6 +615,9 @@ body::before{
 
 /* ── Mobile ── */
 @media(max-width:768px){
+  /* iOSでfixedが効かないためscrollに切り替え */
+  body{ background-attachment:scroll; }
+
   /* Hero */
   .hero{ padding:1.5rem .75rem; }
   .hero-trophy{ font-size:2.8rem; }
