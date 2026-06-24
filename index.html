@@ -31,25 +31,27 @@
 html{scroll-behavior:smooth}
 body{
   background-color:var(--navy);
-  background-image:url('球.jpeg');
-  background-size:cover;
-  background-position:center top;
-  background-attachment:fixed;
-  background-repeat:no-repeat;
   color:var(--white);
   font-family:'Noto Sans JP',sans-serif;
   font-size:14px;
   min-height:100vh;
   overflow-x:hidden;
 }
-/* ヒーロー以外のセクションに暗いオーバーレイ（.content-wrapで管理） */
-body::before{
-  content:'';
+/* 背景画像専用div（iOS含め全端末で確実に表示） */
+.page-bg{
   position:fixed;
   inset:0;
+  z-index:-1;
+  background-image:url('球.jpeg');
+  background-size:cover;
+  background-position:center top;
+  background-repeat:no-repeat;
+}
+.page-bg::after{
+  content:'';
+  position:absolute;
+  inset:0;
   background:rgba(4,10,22,.2);
-  pointer-events:none;
-  z-index:0;
 }
 .content-wrap{
   position:relative;
@@ -615,8 +617,8 @@ body::before{
 
 /* ── Mobile ── */
 @media(max-width:768px){
-  /* iOSでfixedが効かないためscrollに切り替え */
-  body{ background-attachment:scroll; }
+  /* iOSではfixedが効かないためscrollに切り替え */
+  .page-bg{ position:absolute; min-height:100%; }
 
   /* Hero */
   .hero{ padding:1.5rem .75rem; }
@@ -695,6 +697,7 @@ body::before{
 </style>
 </head>
 <body>
+<div class="page-bg" aria-hidden="true"></div>
 
 <!-- ══════════ HERO ══════════ -->
 <section class="hero" id="top">
