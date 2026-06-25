@@ -1297,11 +1297,11 @@ const TOP_SCORERS = [
   { player:'アーリング・ハーランド',   team:'NOR', flag:'🇳🇴', goals:4, note:'W杯初出場でいきなり4得点', rank:2 },
   { player:'デニズ・ウンダブ',         team:'GER', flag:'🇩🇪', goals:3, note:'ドイツ快進撃を支える得点源', rank:4 },
   { player:'ジョナサン・デイビッド',   team:'CAN', flag:'🇨🇦', goals:3, note:'開催国カナダの絶対的エース', rank:4 },
-  { player:'フォラリン・バログン',     team:'USA', flag:'🇺🇸', goals:2, note:'地元USA開幕戦で躍動', rank:6 },
-  { player:'ハリー・ケイン',           team:'ENG', flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', goals:2, note:'イングランドの不動のストライカー', rank:6 },
-  { player:'クリスティアーノ・ロナウド', team:'POR', flag:'🇵🇹', goals:2, note:'41歳でのW杯ゴール', rank:6 },
-  { player:'ビニシウス・ジュニオール', team:'BRA', flag:'🇧🇷', goals:2, note:'ブラジルの快速エース', rank:6 },
-  { player:'鎌田 大地',               team:'JPN', flag:'🇯🇵', goals:2, note:'オランダ戦劇的同点弾含む2得点', rank:6 },
+  { player:'ビニシウス・ジュニオール', team:'BRA', flag:'🇧🇷', goals:3, note:'ブラジルの快速エース', rank:4 },
+  { player:'フォラリン・バログン',     team:'USA', flag:'🇺🇸', goals:2, note:'地元USA開幕戦で躍動', rank:7 },
+  { player:'ハリー・ケイン',           team:'ENG', flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', goals:2, note:'イングランドの不動のストライカー', rank:7 },
+  { player:'クリスティアーノ・ロナウド', team:'POR', flag:'🇵🇹', goals:2, note:'41歳でのW杯ゴール', rank:7 },
+  { player:'鎌田 大地',               team:'JPN', flag:'🇯🇵', goals:2, note:'オランダ戦劇的同点弾含む2得点', rank:7 },
 ];
 
 // ESPN API → 日本語選手名変換マップ
@@ -1585,6 +1585,23 @@ function computeTopScorers(){
   return sorted;
 }
 
+// ESPNから得たcomputedとTOP_SCORERSをマージ（常にMAXの得点を採用）
+function mergeScorers(computed){
+  const result=TOP_SCORERS.map(ts=>({...ts}));
+  computed.forEach(c=>{
+    const idx=result.findIndex(r=>r.team===c.team&&r.player===c.player);
+    if(idx>=0){
+      if(c.goals>result[idx].goals) result[idx].goals=c.goals;
+    } else {
+      result.push({...c});
+    }
+  });
+  result.sort((a,b)=>b.goals-a.goals||a.player.localeCompare(b.player));
+  let rank=1;
+  result.forEach((s,i)=>{ if(i>0&&s.goals<result[i-1].goals) rank=i+1; s.rank=rank; });
+  return result.slice(0,10);
+}
+
 function renderScorers(data){
   const list=data||TOP_SCORERS;
   return list.map(s=>{
@@ -1858,9 +1875,9 @@ async function doUpdate(){
     GROUPS.forEach(g=>rerenderGroup(g));
     document.getElementById('qualifiers-container').innerHTML=renderQualifiers();
 
-    // 得点ランキングをESPNデータで更新（3人以上取得できた場合のみ）
+    // 得点ランキングをESPNデータとマージして更新（静的データとMAXを比較）
     const computed=computeTopScorers();
-    document.getElementById('scorers-container').innerHTML=renderScorers(computed.length>=3?computed:undefined);
+    document.getElementById('scorers-container').innerHTML=renderScorers(mergeScorers(computed));
 
     const now=new Date();
     const t=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
