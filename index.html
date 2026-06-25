@@ -1342,6 +1342,20 @@ function renderMatchScorers(scorers, homeCode, awayCode){
   return `<div class="match-scorers">${rows}</div>`;
 }
 
+/* 試合終了後にYouTube/DAZNのハイライト検索URLを自動生成 */
+function ytSearchUrl(hc, ac){
+  const h = TEAMS[hc]?.name || hc;
+  const a = TEAMS[ac]?.name || ac;
+  return 'https://www.youtube.com/results?search_query=' +
+    encodeURIComponent(`FIFA ワールドカップ 2026 ${h} ${a} ハイライト`);
+}
+function daznSearchUrl(hc, ac){
+  const h = TEAMS[hc]?.name || hc;
+  const a = TEAMS[ac]?.name || ac;
+  return 'https://www.dazn.com/ja-JP/search?q=' +
+    encodeURIComponent(`ワールドカップ 2026 ${h} ${a}`);
+}
+
 function renderMatchCard(m){
   const liveClass = m.live ? ' live' : '';
   const mdLabel = m.live
@@ -1351,6 +1365,26 @@ function renderMatchCard(m){
   const noteHtml = m.note
     ? `<div style="padding:.35rem .75rem;font-size:.72rem;color:#FFD700;background:rgba(255,215,0,.08);border-top:1px solid rgba(255,215,0,.1);">${m.note}</div>`
     : '';
+
+  const isDone = m.hs !== null && !m.live;
+  const isLive = m.live;
+
+  /* リンク：試合終了後は自動生成URLを使用、未試合は非表示 */
+  let linksHtml = '';
+  if(isDone){
+    const yt  = m.yt  || ytSearchUrl(m.home, m.away);
+    const dazn = m.dazn || daznSearchUrl(m.home, m.away);
+    linksHtml = `
+  <div class="match-links">
+    <a class="btn-dazn" href="${dazn}" target="_blank" rel="noopener"><span class="btn-icon">▶</span>DAZN</a>
+    <a class="btn-yt"   href="${yt}"   target="_blank" rel="noopener"><span class="btn-icon">▶</span>YouTube ハイライト</a>
+  </div>`;
+  } else if(isLive){
+    linksHtml = `
+  <div class="match-links">
+    <a class="btn-dazn" href="https://www.dazn.com/ja-JP/home" target="_blank" rel="noopener"><span class="btn-icon">▶</span>DAZNで視聴</a>
+  </div>`;
+  }
 
   return `
 <div class="match-card${liveClass}">
@@ -1370,10 +1404,7 @@ function renderMatchCard(m){
     <div class="stat-item"><span class="stat-label">🟨:</span>${m.stats.yellow}</div>
     <div class="stat-item"><span class="stat-label">🟥:</span>${m.stats.red}</div>
   </div>
-  <div class="match-links">
-    <a class="btn-dazn" href="${m.dazn}" target="_blank" rel="noopener"><span class="btn-icon">▶</span>DAZN</a>
-    <a class="btn-yt" href="${m.yt}" target="_blank" rel="noopener"><span class="btn-icon">▶</span>YouTube</a>
-  </div>
+  ${linksHtml}
 </div>`;
 }
 
@@ -1747,6 +1778,35 @@ let _busy=false;
 let _timer=null;
 let _fetchCount=0;
 
+/* GROUPSに存在しない新試合をESPN APIデータから自動追加 */
+function addMissingMatch(p){
+  for(const g of GROUPS){
+    const codes=g.teams.map(t=>t.code);
+    if(!codes.includes(p.hc)||!codes.includes(p.ac)) continue;
+    if(g.matches.some(m=>(m.home===p.hc&&m.away===p.ac)||(m.home===p.ac&&m.away===p.hc))) return true;
+    const d=p.date?new Date(p.date):null;
+    const day=d?d.getMonth()*31+d.getDate():0;
+    const md=day<=(5*31+18)?1:day<=(5*31+24)?2:3;
+    const dateStr=d?`${d.getMonth()+1}月${d.getDate()}日`:'—';
+    const scorers=Object.entries(
+      p.scorers.reduce((acc,s)=>{ (acc[s.team]||(acc[s.team]=[])).push(s.label); return acc; },{})
+    ).map(([team,goals])=>({team,goals}));
+    g.matches.push({
+      md,date:dateStr,venue:p.venue||'—',
+      home:p.hc,away:p.ac,hs:p.hs,as:p.as,live:p.live,
+      scorers,
+      stats:{
+        poss:'— / —',
+        yellow:p.cards?`${p.cards[p.hc]?.y||0} / ${p.cards[p.ac]?.y||0}`:'— / —',
+        red:p.cards?`${p.cards[p.hc]?.r||0} / ${p.cards[p.ac]?.r||0}`:'— / —',
+      },
+      dazn:'',yt:''
+    });
+    return true;
+  }
+  return false;
+}
+
 async function doUpdate(){
   if(_busy) return;
   _busy=true;
@@ -1761,7 +1821,8 @@ async function doUpdate(){
 
     allEvents.forEach(ev=>{
       const p=parseEvent(ev);
-      if(p&&(p.done||p.live)) applyEventToData(p);
+      if(!p||(p.hs===null&&!p.live)) return;
+      if(!applyEventToData(p)) addMissingMatch(p);
     });
 
     recalcAll();
