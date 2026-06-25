@@ -1304,6 +1304,30 @@ const TOP_SCORERS = [
   { player:'鎌田 大地',               team:'JPN', flag:'🇯🇵', goals:2, note:'オランダ戦劇的同点弾含む2得点', rank:6 },
 ];
 
+// ESPN API → 日本語選手名変換マップ
+const PLAYER_NAMES_JA = {
+  'Lionel Messi':'リオネル・メッシ',
+  'Kylian Mbappé':'キリアン・ムバッペ','Kylian Mbappe':'キリアン・ムバッペ',
+  'Erling Haaland':'アーリング・ハーランド',
+  'Deniz Undav':'デニズ・ウンダブ',
+  'Jonathan David':'ジョナサン・デイビッド',
+  'Folarin Balogun':'フォラリン・バログン',
+  'Harry Kane':'ハリー・ケイン',
+  'Cristiano Ronaldo':'クリスティアーノ・ロナウド',
+  'Vinícius Júnior':'ビニシウス・ジュニオール','Vinicius Junior':'ビニシウス・ジュニオール',
+  'Daichi Kamada':'鎌田 大地','Ayase Ueda':'上田 綺世',
+  'Memphis Depay':'メンフィス・デパイ','Romelu Lukaku':'ロメル・ルカク',
+  'Lamine Yamal':'ラミン・ヤマル','Pedri':'ペドリ','Ferran Torres':'フェラン・トーレス',
+  'Neymar':'ネイマール','Rodrygo':'ロドリゴ',
+  'Bukayo Saka':'ブカヨ・サカ','Phil Foden':'フィル・フォーデン',
+  'Antoine Griezmann':'アントワーヌ・グリーズマン','Olivier Giroud':'オリヴィエ・ジルー',
+  'Karim Benzema':'カリム・ベンゼマ',
+  'Sadio Mané':'サディオ・マネ','Sadio Mane':'サディオ・マネ',
+  'Mohamed Salah':'モハメド・サラー',
+  'Kaoru Mitoma':'三笘 薫','Ritsu Doan':'堂安 律','Reo Hatate':'旗手 怜央',
+  'Takumi Minamino':'南野 拓実','Wataru Endo':'遠藤 航',
+};
+
 /* ══════════════════════════════════════════
    RENDER FUNCTIONS
 ══════════════════════════════════════════ */
@@ -1547,11 +1571,16 @@ function computeTopScorers(){
     .filter(p=>p.goals>0)
     .sort((a,b)=>b.goals-a.goals||a.player.localeCompare(b.player))
     .slice(0,10);
-  // タイを考慮してランク付け
   let rank=1;
   sorted.forEach((s,i)=>{
     if(i>0&&s.goals<sorted[i-1].goals) rank=i+1;
     s.rank=rank;
+    // 英語名を日本語名に変換
+    const ja=PLAYER_NAMES_JA[s.player];
+    if(ja) s.player=ja;
+    // TOP_SCORERSからnoteを取得
+    const ts=TOP_SCORERS.find(t=>t.team===s.team&&(t.player===s.player||t.player===ja));
+    if(ts) s.note=ts.note;
   });
   return sorted;
 }
@@ -1828,6 +1857,10 @@ async function doUpdate(){
     recalcAll();
     GROUPS.forEach(g=>rerenderGroup(g));
     document.getElementById('qualifiers-container').innerHTML=renderQualifiers();
+
+    // 得点ランキングをESPNデータで更新（3人以上取得できた場合のみ）
+    const computed=computeTopScorers();
+    document.getElementById('scorers-container').innerHTML=renderScorers(computed.length>=3?computed:undefined);
 
     const now=new Date();
     const t=now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
